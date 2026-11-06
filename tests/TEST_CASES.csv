@@ -1,0 +1,29 @@
+TC ID,Module,Scenario,Steps,Test Data,Expected Result,Type,Priority
+TC01,Docker,Image builds,docker build -t wisecow .,Dockerfile,Build succeeds; image < 300MB,Smoke,High
+TC02,Docker,Container serves wisdom,docker run -p 4499:4499 wisecow; curl localhost:4499,-,HTTP 200 with <pre> cowsay output,Functional,High
+TC03,Docker,Runs as non-root,docker run wisecow id -u,-,UID 10001 (not 0),Security,High
+TC04,Docker,Each request returns new fortune,curl twice,-,Two responses differ (usually),Functional,Low
+TC05,K8s,Deployment rollout,kubectl apply -f k8s/; kubectl rollout status deploy/wisecow,-,2/2 pods Ready,Smoke,High
+TC06,K8s,Service exposes app,kubectl port-forward svc/wisecow-svc 8080:80; curl,-,HTTP 200 via service,Functional,High
+TC07,K8s,Self-healing,kubectl delete pod <one wisecow pod>,-,New pod created; service stays reachable,Resilience,Medium
+TC08,K8s,Probes detect failure,Kill wisecow process in a pod,-,Liveness probe restarts container,Resilience,Medium
+TC09,K8s,Resource limits applied,kubectl describe pod,-,cpu 250m / mem 128Mi limits present,Config,Low
+TC10,TLS,HTTPS works,curl -k https://wisecow.local,host entry,HTTP 200 over TLS,Security,High
+TC11,TLS,HTTP redirects to HTTPS,curl -I http://wisecow.local,-,308 redirect to https,Security,High
+TC12,TLS,Certificate issued,kubectl get certificate wisecow-tls,-,READY=True; CN/SAN = wisecow.local,Security,High
+TC13,TLS,Wrong host rejected by cert,curl https://<ip> without -k,-,Certificate verification fails,Negative,Medium
+TC14,CI/CD,Push triggers pipeline,Push commit to main,-,Workflow runs: tests -> build-push -> deploy,CI,High
+TC15,CI/CD,Image pushed with tags,Check GHCR after run,-,:latest and :<sha> tags exist,CI,High
+TC16,CI/CD,Failing test blocks build,Break a unit test and push,-,build-push and deploy skipped,Negative,High
+TC17,CI/CD,CD deploys to cluster,Inspect deploy job logs,-,Rollout complete; curl through service passes,CD,High
+TC18,Health Monitor,All metrics normal,Run --once on idle host,-,No ALERT; exit 0,Functional,High
+TC19,Health Monitor,CPU at boundary 80%,Mock CPU=80.0,-,No alert (> not >=),Boundary,Medium
+TC20,Health Monitor,CPU above threshold,Mock CPU=80.1 / run stress,-,ALERT cpu logged to console and file,Functional,High
+TC21,Health Monitor,Multiple breaches,Mock CPU/MEM/DISK 95%,procs 500,4 alerts + top-5 processes,Functional,Medium
+TC22,App Checker,App up (2xx),Run against healthy URL,https://wisecow.local --insecure,UP; exit 0,Functional,High
+TC23,App Checker,Redirect (3xx),URL returning 301,-,UP,Functional,Medium
+TC24,App Checker,404,URL returning 404,-,DOWN after 1 attempt (no retry),Negative,High
+TC25,App Checker,5xx retried,URL returning 503,retries=3,3 attempts then DOWN; exit 1,Negative,High
+TC26,App Checker,Transient failure recovers,Conn error then 200,-,UP on 2nd attempt,Resilience,Medium
+TC27,App Checker,Timeout,Unresponsive host,timeout=2,DOWN (timeout),Negative,Medium
+TC28,App Checker,Self-signed TLS without --insecure,https://wisecow.local,-,DOWN (TLS error),Security,Medium
